@@ -33,6 +33,43 @@ git --version
 
 Kalau muncul nomor versi (contoh: `git version 2.47.0`), Git sudah siap.
 
+### Langkah 2.5 — Login ke Git (hanya sekali, di awal)
+
+Ini penting supaya Git tahu **siapa kamu** dan **punya izin mengakses repository tim**.
+
+**A. Kenalkan nama dan email kamu ke Git** (sekali saja per laptop):
+
+Di Command Prompt, ketik (ganti dengan nama dan email kamu sendiri):
+
+```
+git config --global user.name "Nama Kamu"
+git config --global user.email "email-github-kamu@example.com"
+```
+
+Catatan: pakai **email yang kamu pakai untuk daftar GitHub**. Ini bukan login, cuma identitas yang tampil di riwayat pekerjaan.
+
+**B. Login ke akun GitHub:**
+
+Saat kamu nanti menjalankan `git push` untuk **pertama kali**, biasanya akan muncul jendela popup **"GitHub Sign in"** atau **"Git Credential Manager"**:
+
+1. Pilih **Sign in with your browser** (atau klik **Sign in with GitHub**).
+2. Browser akan terbuka → klik **Authorize**.
+3. Selesai. Setelah itu Git tidak akan menanyakan login lagi.
+
+Kalau popup tidak muncul dan kamu diminta memasukkan username/password di Command Prompt:
+* Username → isi username GitHub kamu.
+* Password → **JANGAN isi password GitHub kamu** (Git tidak akan terima). Kalau ini terjadi, berhenti dan tanya Abim — cara login yang benar adalah lewat browser seperti di atas.
+
+Cara lain yang lebih gampang: install **GitHub CLI** lalu ketik:
+
+```
+gh auth login
+```
+
+ikuti petunjuknya (pilih `GitHub.com` → `Login with a web browser` → buka link yang muncul di browser → masukkan kode yang ditampilkan).
+
+Kalau bingung, screenshot-kan ke Abim. Ini langkah yang paling sering bikin bingung pemula — kamu tidak sendirian. 😄
+
 ### Langkah 3 — Clone repository
 
 Clone = **mengambil project dari GitHub ke laptop kamu**.
