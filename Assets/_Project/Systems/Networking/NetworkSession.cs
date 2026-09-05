@@ -1,21 +1,21 @@
-using System;
+﻿using System;
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
 using UnityEngine;
 
 namespace PBJ.Networking
 {
-    /// <summary>
-    /// M1-01: Network session foundation bootstrap.
-    /// Provides minimal Host / Client session start on top of NetworkManager + Unity Transport.
-    /// LAN / Direct IP: address and port are configurable (Inspector fields or command line args).
-    /// No gameplay logic. No player spawning (that is M1-02+).
-    /// </summary>
+    // M1-01 + M1-02: Network session foundation + Host/Client connection flow.
+    // Reuses M1-01 setup (NetworkManager + UnityTransport, LAN/Direct IP, configurable port).
+    // M1-02 adds observable connection lifecycle logging and safe connection-failure handling.
     public class NetworkSession : MonoBehaviour
     {
         [Header("Session Configuration (LAN / Direct IP)")]
         [SerializeField] private string address = "127.0.0.1";
         [SerializeField] private ushort port = 7777;
+
+        // Distinguishes a normal client disconnect from an initial connection failure.
+        private bool _hasConnected;
 
         private void Awake()
         {
@@ -24,10 +24,7 @@ namespace PBJ.Networking
 
         private void Start()
         {
-            // Command-line driven startup (used by automated/batch testing):
-            // -pbjHost            start as Host
-            // -pbjClient [ip]     start as Client (optional ip override)
-            // -pbjPort <port>     optional port override
+            // Command-line driven startup: -pbjHost | -pbjClient [ip] | -pbjPort <port>
             var args = Environment.GetCommandLineArgs();
             if (Array.IndexOf(args, "-pbjHost") >= 0)
             {
@@ -64,11 +61,12 @@ namespace PBJ.Networking
             ApplyConnectionData();
             if (NetworkManager.Singleton.StartHost())
             {
-                Debug.Log($"[NetworkSession] Host started on port {port}.");
+                Log("HOST", "Starting HOST");
+                Log("HOST", "Host started successfully");
             }
             else
             {
-                Debug.LogError("[NetworkSession] Failed to start Host.");
+                LogError("HOST", "Failed to start Host");
             }
         }
 
@@ -77,11 +75,13 @@ namespace PBJ.Networking
             ApplyConnectionData();
             if (NetworkManager.Singleton.StartClient())
             {
-                Debug.Log($"[NetworkSession] Client connecting to {address}:{port}...");
+                _hasConnected = false;
+                Log("CLIENT", "Starting CLIENT");
+                Log("CLIENT", $"Connecting to {address}:{port}");
             }
             else
             {
-                Debug.LogError($"[NetworkSession] Failed to start Client ({address}:{port}).");
+                LogError("CLIENT", $"Failed to start Client ({address}:{port})");
             }
         }
 
@@ -90,10 +90,14 @@ namespace PBJ.Networking
             var transport = NetworkManager.Singleton.GetComponent<UnityTransport>();
             if (transport == null)
             {
-                Debug.LogError("[NetworkSession] UnityTransport not found on NetworkManager.");
+                LogError("NETWORK", "UnityTransport not found on NetworkManager");
                 return;
             }
             transport.SetConnectionData(address, port);
+            transport.ConnectTimeoutMS = 2000;
+            transport.MaxConnectAttempts = 1;
+            transport.DisconnectTimeoutMS = 3000;
+            transport.HeartbeatTimeoutMS = 1000;
         }
 
         private void OnEnable()
@@ -113,12 +117,49 @@ namespace PBJ.Networking
 
         private void OnClientConnected(ulong clientId)
         {
-            Debug.Log($"[NetworkSession] Client connected: {clientId}. Total clients (server view): {NetworkManager.Singleton.ConnectedClients.Count}");
+            if (NetworkManager.Singleton.IsServer && clientId == NetworkManager.Singleton.LocalClientId)
+            {
+                Log("HOST", "Host session active (server listening)");
+            }
+            else if (NetworkManager.Singleton.IsServer)
+            {
+                Log("HOST", $"Client connected: {clientId}. Total clients: {NetworkManager.Singleton.ConnectedClients.Count}");
+            }
+            else if (NetworkManager.Singleton.IsClient && clientId == NetworkManager.Singleton.LocalClientId)
+            {
+                _hasConnected = true;
+                Log("CLIENT", "Client connected");
+            }
         }
 
         private void OnClientDisconnected(ulong clientId)
         {
-            Debug.Log($"[NetworkSession] Client disconnected: {clientId}.");
+            if (NetworkManager.Singleton.IsServer)
+            {
+                Log("HOST", $"Client disconnected: {clientId}. Total clients: {NetworkManager.Singleton.ConnectedClients.Count}");
+            }
+            else if (NetworkManager.Singleton.IsClient && clientId == NetworkManager.Singleton.LocalClientId)
+            {
+                if (_hasConnected)
+                {
+                    _hasConnected = false;
+                    Log("CLIENT", "Client disconnected");
+                }
+                else
+                {
+                    Log("CLIENT", "Connection failed");
+                }
+            }
+        }
+
+        private void Log(string role, string message)
+        {
+            Debug.Log($"[PBJ][Network] [{role}] {message}");
+        }
+
+        private void LogError(string role, string message)
+        {
+            Debug.LogError($"[PBJ][Network] [{role}] {message}");
         }
 
         private void ReadCommandLineArgs()
@@ -137,3 +178,4 @@ namespace PBJ.Networking
         }
     }
 }
+
