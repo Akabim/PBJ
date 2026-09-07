@@ -15,7 +15,8 @@ Buka di sini: <https://github.com/users/Akabim/projects/3/views/1>
 Di board kamu bisa lihat task apa saja yang ada, statusnya (belum dikerjakan, sedang dikerjakan, selesai, dll), dan siapa yang ngerjain.
 
 <!-- Replace with the GitHub attachment URL after uploading the screenshot. -->
-![Contoh GitHub Project Board](GITHUB_ATTACHMENT_URL_PROJECT_BOARD)
+<img width="1914" height="879" alt="image" src="https://github.com/user-attachments/assets/0d8fea44-f3b0-42bf-a35f-8ac6e021812c" />
+
 
 ---
 
@@ -40,7 +41,8 @@ Satu Issue biasanya berisi:
 **Penting:** baca seluruh isi Issue dulu sebelum mulai kerja. Jangan asal gas — sering ada batasan scope yang ditulis di dalamnya.
 
 <!-- Replace with the GitHub attachment URL after uploading the screenshot. -->
-![Contoh GitHub Issue](GITHUB_ATTACHMENT_URL_ISSUE)
+<img width="1127" height="901" alt="image" src="https://github.com/user-attachments/assets/507c66ca-36e9-41df-92a0-913d81be672d" />
+
 
 ---
 
@@ -279,21 +281,7 @@ DONE
 
 ---
 
-## 12. Contoh GitHub Board
-
-<!-- Replace with the GitHub attachment URL after uploading the screenshot. -->
-![GitHub Project Board](GITHUB_ATTACHMENT_URL_PROJECT_BOARD)
-
----
-
-## 13. Contoh Issue
-
-<!-- Replace with the GitHub attachment URL after uploading the screenshot. -->
-![GitHub Issue](GITHUB_ATTACHMENT_URL_ISSUE)
-
----
-
-## 14. Contoh Completion / Review
+## 12. Contoh Completion / Review
 
 Kalau task selesai, hasilnya didokumentasikan sebagai **completion record** di Issue. Isinya kurang lebih:
 
@@ -307,14 +295,7 @@ Kalau task selesai, hasilnya didokumentasikan sebagai **completion record** di I
 Jadi pas review, semua orang bisa lihat track record pekerjaannya — bukan cuma "udah kelar".
 
 <!-- Replace with the GitHub attachment URL after uploading the screenshot. -->
-![Completion Record](GITHUB_ATTACHMENT_URL_COMPLETION_RECORD)
-
----
-
-## 15. Contoh Branch
-
-<!-- Replace with the GitHub attachment URL after uploading the screenshot. -->
-![GitHub Branches](GITHUB_ATTACHMENT_URL_BRANCHES)
+<img width="1134" height="901" alt="image" src="https://github.com/user-attachments/assets/16589511-2def-47b3-b34c-2a8d567d1c66" />
 
 ---
 
