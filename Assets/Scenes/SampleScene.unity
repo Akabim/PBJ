@@ -395,6 +395,7 @@ GameObject:
   - component: {fileID: 433263279}
   - component: {fileID: 433263280}
   - component: {fileID: 433263281}
+  - component: {fileID: 433263282}
   m_Layer: 0
   m_Name: NetworkManager
   m_TagString: Untagged
@@ -462,13 +463,13 @@ MonoBehaviour:
   NetworkConfig:
     ProtocolVersion: 0
     NetworkTransport: {fileID: 433263279}
-    PlayerPrefab: {fileID: 0}
+    PlayerPrefab: {fileID: 4203070223931920215, guid: f3c7eb30d9ac2a341a99f2e13d5cecbe, type: 3}
     Prefabs:
       NetworkPrefabsLists:
       - {fileID: 11400000, guid: 35a6898afe820a849a0e7249eb45a6b5, type: 2}
     TickRate: 30
     ClientConnectionBufferTimeout: 10
-    ConnectionApproval: 0
+    ConnectionApproval: 1
     ConnectionData: 
     EnableTimeResync: 0
     TimeResyncInterval: 30
@@ -502,6 +503,20 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PBJ.Networking.NetworkSession
   address: 127.0.0.1
   port: 7777
+--- !u!114 &433263282
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 433263277}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 98b6f0af7d788bc4aaea39fa96b90eef, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PBJ.Networking.PlayerSpawnHandler
+  spawnPoint: {x: 0, y: 1, z: 0}
+  clientSpacing: 2
 --- !u!1 &832575517
 GameObject:
   m_ObjectHideFlags: 0
