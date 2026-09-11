@@ -106,6 +106,24 @@ commit `7138c9fe`, `Assets/Playground/Ibnu/Scripts/PlayerMovement.cs`):
 `PlayerMovement` Ibnu tanpa membutuhkan custom networking architecture.**
 Tidak ada kode tambahan yang dibuat untuk ini (sesuai prinsip jangan overengineer).
 
+### Rencana Integrasi M1-05 (disepakati)
+
+Ketika M1-05 selesai, kita **implement dari `PlayerMovement` Ibnu** — bukan membuat
+movement system baru, bukan mempertahankan `TemporaryPlayerMovement`.
+Checklist hari-H (verifikasi ulang saat eksekusi):
+
+1. Bawa `PlayerMovement` ke production (branch/lokasi final ditentukan saat integrasi).
+2. Production `Player.prefab` **belum punya Rigidbody** — `PlayerMovement` memanggil
+   `GetComponent<Rigidbody>()` di `Awake` (NRE tanpa itu) → tambahkan Rigidbody di prefab.
+3. Tambahkan **NetworkTransform** (Owner authority — konfigurasi yang sudah dibuktikan
+   M1-06) ke production `Player.prefab`.
+4. **Ownership gating**: `PlayerMovement` belum punya guard `IsOwner` (plain
+   MonoBehaviour) → pilih saat integrasi: guard ditambahkan di script Ibnu (file Ibnu,
+   keputusannya) atau gate tipis NetworkBehaviour di sisi integration. Tanpa gating,
+   replica tetap dikoreksi NetworkTransform tiap tick (kerja sia-sia/jitter).
+5. Setelah integrasi terverifikasi, hapus `TemporaryPlayerMovement` + folder test
+   M1-06 ini.
+
 ## Checklist Verifikasi (apa yang diuji)
 
 - **HOST**: `Player_0` bergerak dengan WASD; client melihat `Player_0` bergerak;
