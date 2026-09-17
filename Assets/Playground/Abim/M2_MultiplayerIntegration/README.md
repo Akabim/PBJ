@@ -67,32 +67,89 @@ Environment (batu/ground/Wall) ─→ STATIC/local, tidak dinetwork-kan (collide
    player tidak menembus ground; player-player collision bila ditempatkan
    berdekatan. Test G: spawning M1-03 tetap bekerja; tidak ada duplicate player;
    disconnect/despawn bersih.
-   Test H (LOCAL, belum networked): owner instance tekan E dekat PickupItem → item nempel di
-   HoldPoint; tekan Q → item drop. TIDAK ada sync — remote instance tidak melihat item (sengaja,
-   out of scope). Objek pickup TEST-ONLY ada di scene ini: `batu` (kubus di (1, 0.5, 1.5)) dengan
-   komponen `PickupItem` — dekat spawn P0/P1, TANPA networking sama sekali (local object saja).
+   Test H (M2-02 NETWORKED pickup/drop): owner instance tekan E dekat `batu` (kubus di
+   (1, 0.5, 1.5), komponen `PickupItem` + `M2NetworkedPickup` + NetworkObject +
+   NetworkTransform). Host pickup -> client melihat batu nempel di player host; client
+   pickup -> host melihat batu di player client. Q -> server unparent + drop di depan
+   carrier (semua instance melihat hasilnya). Detail arsitektur & validasi server:
+   lihat bagian "M2-02 networked pickup/drop" di bawah. Fallback lokal (item TANPA
+   M2NetworkedPickup spawned) tetap jalan seperti dulu.
+
+## M2-02 networked pickup/drop (server-authoritative)
+
+```
+E (owner instance, gate) -> PlayerInteraction.TryInteract -> PickupItem.Interact(player)
+   -> M2NetworkedPickup.RequestPickup -> host: validasi server langsung;
+      client: PickupServerRpc -> server validasi -> carrierClientId = sender
+      -> NetworkObject.TrySetParent(player) + local (0,0,0.7) + collider off
+Q (owner instance, gate) -> PlayerInventory.Drop -> M2NetworkedPickup.RequestDrop
+   -> host: validasi langsung; client: DropServerRpc -> server validasi
+      (hanya carrier) -> TrySetParent(null) + posisi = player.pos + forward*1.5
+      + collider on -> NetworkTransform (server authority) mereplikasi hasil.
+```
+
+- **Authority**: SERVER. Item NetworkObject tetap server-owned (ownership TIDAK
+  dipindah ke carrier). Carrier diwakili `carrierClientId`.
+- **State**: satu `NetworkVariable<ulong> carrierClientId` (server write, everyone
+  read) di `M2NetworkedPickup`. `Dropped = ulong.MaxValue` = item tersedia; nilai
+  lain = sedang dipegang client tersebut. Tidak ada bool/enum tambahan, tidak ada
+  inventory state di player, tidak ada manager/registry.
+- **RPC**: 2 ServerRpc saja (`PickupServerRpc`, `DropServerRpc`,
+  `RequireOwnership=false`; identity dari `ServerRpcParams.Receive.SenderClientId`,
+  bukan id yang dikirim client). **Tidak ada ClientRpc** - visual mengikuti state
+  ter-replikasi + NGO parenting.
+- **Validasi pickup (server)**: sender punya player object valid; item `Dropped`;
+  jarak item-player <= 2 (range sama dengan PlayerInteraction); player belum
+  membawa item lain (scan server-side `FindObjectsByType<M2NetworkedPickup>`,
+  bukan registry); item spawned.
+- **Validasi drop (server)**: hanya `carrierClientId == senderClientId` yang boleh
+  drop; posisi drop dihitung server (aturan sama dengan kode lokal:
+  `player.position + player.forward * 1.5`).
+- **Network parenting**: server `TrySetParent(playerNetworkObject)` saat pickup,
+  `TrySetParent(null)` saat drop (NGO 2.x menyinkronkan parenting ke semua client).
+  NetworkTransform item dimatikan selama di-parent (player punya NetworkTransform
+  sendiri; NT item yang server-authoritative akan melawan parent transform) dan
+  dinyalakan lagi saat drop. Tidak ada custom replication.
+- **Tanpa prediksi lokal**: path networked TIDAK mem-parenting lokal sebelum server
+  konfirmasi (tidak ada rollback/duplikat visual). Client non-host hanya request;
+  hasilnya datang dari state server. `PlayerInventory.requestedNetworkedPickup`
+  hanya pointer LOKAL (tidak direplikasi) supaya Q tahu item mana yang pernah
+  diminta sebelum server mengonfirmasi.
+- **Simultan**: dua pemain menekan E hampir bersamaan -> request pertama yang tiba
+  di server menang; request kedua ditolak (carrier != Dropped). Tidak ada lock lain.
+- **Compile/boundary**: semua kode networking di
+  `Assets/Playground/Abim/M2_MultiplayerIntegration/`; satu-satunya modifikasi di
+  luar folder itu adalah branch networked minimal di `Pickupitem.cs` dan
+  `PlayerInventory.cs` (path lokal offline tetap utuh). Item TIDAK didaftarkan ke
+  `M2TestNetworkPrefabs.asset` / `DefaultNetworkPrefabs.asset` (scene-placed).
+
+## DISCONNECT PICKUP BEHAVIOR: TBD
+
+Belum ada rule gameplay disconnect (auto-drop / destroy / respawn item saat carrier
+disconnect). Secara teknis, player object yang despawn membawa item yang di-parent
+akan ikut despawn (NGO default). Keputusan gameplay ditunda - jangan dianggap bug.
 
 ## Status
 
-- Compile: PASS (verified via CLI).
-- Runtime MPPM: **UNTESTED** (menunggu manual test; CLI smoke test host PASS).
+- Compile: (M2-02 pending verification via CLI batch compile.)
+- Runtime MPPM: **UNTESTED** untuk M2-02 networked pickup/drop (butuh manual test).
 - Physical LAN: NOT TESTED.
-- PlayerInteraction / pickup / drop: **BELUM NETWORKED** (sengaja — out of scope).
+- Local/offline pickup/drop fallback: tetap tersedia untuk item non-networked.
 
 ## Known limitations
 
+- M2-02 runtime belum diverifikasi manual (MPPM tidak bisa dijalankan dari CLI):
+  matrix Host+1/2/3 Client, failure cases, dan perilaku late-join masih UNTESTED.
+- Disconnect saat membawa item: item ikut despawn (NGO default) - gameplay rule TBD
+  (lihat "DISCONNECT PICKUP BEHAVIOR: TBD").
+- Item tidak punya Rigidbody/NetworkRigidbody (sengaja, M2-02): setelah drop item
+  diam di posisi drop; fisika jatuh/rebound = task terpisah bila dibutuhkan.
 - Interpolasi & jitter runtime belum diobservasi eksplisit (NetworkTransform
   Interpolate on; observasi runtime menunggu manual test).
-- `PlayerInventory`/`PickupItem` juga masih local-only (tanpa authority network) —
-  sengaja TIDAK di-sync di task ini; sync pickup/drop = task terpisah.
-  Targeting sudah diperbaiki: `PlayerInteraction` meneruskan player pemicu ke
-  `Interact(player)` sehingga item masuk ke inventory milik player itu
-  (bukan lagi `FindFirstObjectByType<PlayerInventory>()` global).
 - PlayerInteraction masih local-only: `Interact()` hanya jalan di instance yang
   menekan E (dan hanya owner via gate); tidak ada sync hasil interact.
 - Movement masih XZ-plane placeholder 2.5D; final movement/gameplay dikembangkan
   di M2 oleh Ibnu (branch programmer/mechanics).
-- Environment (batu, ground, Wall) sengaja tidak dinetwork-kan: object statis,
-  collider-nya sudah ada di setiap instance sehingga collision bekerja tanpa
-  transform sync. Kalau kelak environment menjadi dynamic, barulah perlu
-  NetworkObject (bukan bagian dari task ini).
+- Environment selain `batu` (ground, Wall) sengaja tidak dinetwork-kan: object
+  statis, collider-nya sudah ada di setiap instance sehingga collision bekerja
+  tanpa transform sync.

@@ -22,6 +22,27 @@ public class PickupItem : InteractableObject
     // inventory pertama yang ditemukan secara global di scene.
     public override void Interact(PlayerInteraction player)
     {
+        // M2-02: networked path - item punya M2NetworkedPickup dan NGO aktif.
+        // Request ke server lewat inventory pemain (agar Q tahu item mana yang
+        // diminta); TIDAK ada prediksi lokal (client menunggu state server).
+        if (TryGetComponent<PBJ.Playground.Abim.M2.M2NetworkedPickup>(out var networkedPickup) &&
+            networkedPickup.IsSpawned)
+        {
+            PlayerInventory requestingInventory =
+                player != null ? player.GetComponent<PlayerInventory>() : null;
+
+            if (requestingInventory != null)
+            {
+                requestingInventory.RequestNetworkedPickup(networkedPickup);
+            }
+            else
+            {
+                networkedPickup.RequestPickup();
+            }
+
+            return;
+        }
+
         PlayerInventory inventory = null;
 
         if (player != null)
