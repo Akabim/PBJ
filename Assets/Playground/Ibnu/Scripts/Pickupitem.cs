@@ -17,6 +17,28 @@ public class PickupItem : InteractableObject
         }
     }
 
+    // Multiplayer: interaksi membawa player pemicunya, sehingga item masuk ke
+    // inventory milik player itu (GetComponent pada GO yang sama), bukan ke
+    // inventory pertama yang ditemukan secara global di scene.
+    public override void Interact(PlayerInteraction player)
+    {
+        PlayerInventory inventory = null;
+
+        if (player != null)
+        {
+            inventory = player.GetComponent<PlayerInventory>();
+        }
+        else
+        {
+            inventory = FindFirstObjectByType<PlayerInventory>();
+        }
+
+        if (inventory != null)
+        {
+            inventory.PickUp(this);
+        }
+    }
+
     public void SetHeld(bool isHeld)
     {
         Collider col = GetComponent<Collider>();
