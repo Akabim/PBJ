@@ -1,3 +1,4 @@
+using Unity.Collections;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -5,13 +6,40 @@ namespace PBJ.Networking
 {
     // M1-03: minimal networked player identity, for spawn verification only.
     // M1-04: adds IsOwner-guarded input feedback to verify input authority.
-    // Technical placeholder - does NOT lock final art/gameplay direction.
-    // The Space-key log is OWNERSHIP VERIFICATION ONLY, not movement (M1-05 scope).
+    // M3: adds the server-authoritative display name. The server sanitizes the
+    // name received in the client's connection approval payload (see
+    // PlayerSpawnHandler) via PlayerNameValidator and writes it into the
+    // NetworkVariable below; every client can read it. Cosmetic only - NOT a
+    // separate identity system, and the Space-key log stays ownership-only.
     public class NetworkPlayerIdentity : NetworkBehaviour
     {
+        // M3: server-write / everyone-read display name. Filled once on the
+        // server at spawn from the sanitized connection approval payload
+        // (or the PlayerNameValidator fallback). Clients never write it.
+        public NetworkVariable<FixedString64Bytes> DisplayName = new NetworkVariable<FixedString64Bytes>(
+            default,
+            NetworkVariableReadPermission.Everyone,
+            NetworkVariableWritePermission.Server);
+
+        // M3: convenience accessor for future name UI (M3+ scope).
+        public string DisplayNameText => DisplayName.Value.ToString();
+
         public override void OnNetworkSpawn()
         {
+            // M1-03 object naming preserved: deterministic, clientId-based.
             gameObject.name = $"Player_{OwnerClientId}";
+            if (IsServer)
+            {
+                // M3: server assigns the sanitized display name before it
+                // replicates. Never trusts raw client strings - PlayerSpawnHandler
+                // already sanitized; fall back if no approved name is registered.
+                if (!PlayerSpawnHandler.TryGetApprovedDisplayName(OwnerClientId, out string approvedName))
+                {
+                    approvedName = PlayerNameValidator.GetFallbackName(OwnerClientId);
+                }
+                DisplayName.Value = approvedName;
+                Debug.Log($"[PBJ][Network][NETWORK] Display name '{approvedName}' assigned to {gameObject.name} (client {OwnerClientId})");
+            }
             Debug.Log($"[PBJ][Network][NETWORK] Player spawned for client {OwnerClientId} ({(IsOwner ? "owned by this instance" : "remote replica")})");
             if (IsOwner)
             {
