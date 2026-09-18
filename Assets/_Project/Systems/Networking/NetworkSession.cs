@@ -12,7 +12,7 @@ namespace PBJ.Networking
     // and deliberately NO automatic broadcaster start - minimum coupling):
     // - HOST UI: StartHost(playerName) -> on success the host UI itself starts
     //   LanRoomBroadcaster, advertising session.GamePort (the real NGO game
-    //   port) + its RoomCode. The CLI/hotkey host flow is unchanged.
+    //   port) + its RoomCode. The CLI host flow is unchanged.
     // - CLIENT UI: LanRoomDiscovery.StartSearch(roomCode) -> DiscoveredRoom ->
     //   StartClient(room.HostAddress.ToString(), room.GamePort, playerName),
     //   which reuses the ONE ApplyConnectionData()/SetConnectionData path.
@@ -70,22 +70,7 @@ namespace PBJ.Networking
             }
         }
 
-        private void Update()
-        {
-#if ENABLE_INPUT_SYSTEM
-            var keyboard = UnityEngine.InputSystem.Keyboard.current;
-            if (keyboard != null && keyboard.hKey.wasPressedThisFrame)
-            {
-                StartHost();
-            }
-            else if (keyboard != null && keyboard.cKey.wasPressedThisFrame)
-            {
-                StartClient();
-            }
-#endif
-        }
-
-        // Legacy entry point (CLI flags, hotkeys, scene wiring): unchanged
+        // Legacy entry point (CLI flags, scene wiring): unchanged
         // behavior, including not touching any already-queued name payload.
         public void StartHost()
         {
