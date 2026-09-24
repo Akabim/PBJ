@@ -8,6 +8,9 @@ public class PlayerInventory : MonoBehaviour
 
     private PickupItem heldItem;
 
+    // Agar Shaman bisa mengetahui item yang sedang dibawa
+    public PickupItem HeldItem => heldItem;
+
     private void Update()
     {
         if (Keyboard.current == null)
@@ -53,6 +56,16 @@ public class PlayerInventory : MonoBehaviour
 
         heldItem.SetHeld(false);
 
+        heldItem = null;
+    }
+
+    // Dipanggil ketika Offering diserahkan ke Shaman
+    public void DeliverHeldItem()
+    {
+        if (heldItem == null)
+            return;
+
+        heldItem.gameObject.SetActive(false);
         heldItem = null;
     }
 }
