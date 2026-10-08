@@ -8,6 +8,9 @@ public class PlayerInventory : MonoBehaviour
 
     private PickupItem heldItem;
 
+    // Agar Shaman bisa mengetahui item yang sedang dibawa
+    public PickupItem HeldItem => heldItem;
+
     // M2-02: LOCAL-ONLY request pointer for the networked drop path (never
     // replicated; server authority lives in M2NetworkedPickup.carrierClientId).
     // Needed because the networked path has no client-side prediction, so
@@ -97,6 +100,16 @@ public class PlayerInventory : MonoBehaviour
 
         heldItem.SetHeld(false);
 
+        heldItem = null;
+    }
+
+    // Dipanggil ketika Offering diserahkan ke Shaman
+    public void DeliverHeldItem()
+    {
+        if (heldItem == null)
+            return;
+
+        heldItem.gameObject.SetActive(false);
         heldItem = null;
     }
 }
