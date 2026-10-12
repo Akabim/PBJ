@@ -4,69 +4,116 @@ public class AltarRevive : MonoBehaviour
 {
     [SerializeField] private Transform revivePoint;
     [SerializeField] private float radius = 3f;
-    [SerializeField] private bool requireMaterial = false;
-    [SerializeField] private string reviveMaterialName = "ReviveMaterial";
+    [SerializeField] private Color ringColor = new Color(0.3f, 0.9f, 1f, 1f);
+    [SerializeField] private Color flashColor = Color.white;
+
+    private GameObject ring;
+    private Renderer ringRenderer;
+    private Collider ownCollider;
+    private float flashUntil;
+
+    private void Start()
+    {
+        ownCollider = GetComponent<Collider>();
+        CreateRing();
+    }
+
+    private void OnDestroy()
+    {
+        if (ring != null)
+            Destroy(ring);
+    }
 
     private void Update()
     {
+        UpdateRing();
+
         if (PlayerDeath.DeadPlayers.Count == 0)
             return;
 
-        PlayerDeath deadPlayer = FindDeadPlayerInRange();
-        if (deadPlayer == null)
+        Urn urn = FindFilledUrnInRange();
+        if (urn == null)
             return;
 
-        if (requireMaterial)
-        {
-            PickupItem material = FindMaterialInRange();
-            if (material == null)
-                return;
-
-            material.gameObject.SetActive(false);
-        }
+        PlayerDeath owner = urn.Contained;
+        if (owner == null || !owner.IsDead)
+            return;
 
         Vector3 target = revivePoint != null
             ? revivePoint.position
             : transform.position + Vector3.up;
 
-        deadPlayer.Revive(target);
+        urn.Consume();
+        owner.Revive(target);
 
-        Debug.Log("Altar merevive player.");
+        flashUntil = Time.time + 0.6f;
     }
 
-    private PlayerDeath FindDeadPlayerInRange()
+    private Urn FindFilledUrnInRange()
     {
-        foreach (PlayerDeath dead in PlayerDeath.DeadPlayers)
+        foreach (Urn urn in FindObjectsByType<Urn>(FindObjectsSortMode.None))
         {
-            if (dead.IsCarried)
+            if (!urn.IsFilled || urn.IsHeld)
                 continue;
 
-            if (Vector3.Distance(transform.position, dead.transform.position) <= radius)
-                return dead;
+            Vector3 a = transform.position;
+            Vector3 b = urn.transform.position;
+            a.y = 0f;
+            b.y = 0f;
+
+            if (Vector3.Distance(a, b) <= radius)
+                return urn;
         }
 
         return null;
     }
 
-    private PickupItem FindMaterialInRange()
+    private void CreateRing()
     {
-        Collider[] hits = Physics.OverlapSphere(transform.position, radius);
+        ring = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        ring.name = "AltarRing";
 
-        foreach (Collider hit in hits)
+        Collider ringCollider = ring.GetComponent<Collider>();
+        if (ringCollider != null)
+            Destroy(ringCollider);
+
+        ringRenderer = ring.GetComponent<Renderer>();
+        ringRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        ringRenderer.receiveShadows = false;
+        ringRenderer.material.color = ringColor;
+    }
+
+    private void UpdateRing()
+    {
+        if (ring == null)
+            return;
+
+        float groundY = ownCollider != null
+            ? ownCollider.bounds.min.y
+            : transform.position.y - 0.5f;
+
+        ring.transform.position = new Vector3(
+            transform.position.x,
+            groundY + 0.02f,
+            transform.position.z
+        );
+
+        ring.transform.localScale = new Vector3(radius * 2f, 0.01f, radius * 2f);
+
+        Color color;
+
+        if (Time.time < flashUntil)
         {
-            PickupItem item = hit.GetComponent<PickupItem>();
-
-            if (item == null || item is DeadBody)
-                continue;
-
-            if (!item.gameObject.activeInHierarchy)
-                continue;
-
-            if (item.ItemName == reviveMaterialName)
-                return item;
+            color = Color.Lerp(ringColor, flashColor, (flashUntil - Time.time) / 0.6f);
+        }
+        else
+        {
+            float pulse = 0.75f + 0.25f * Mathf.Sin(Time.time * 2f);
+            color = ringColor * pulse;
+            color.a = 1f;
         }
 
-        return null;
+        ringRenderer.material.color = color;
     }
 
     private void OnDrawGizmosSelected()

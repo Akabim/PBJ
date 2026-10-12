@@ -8,8 +8,8 @@ public class PlayerInventory : MonoBehaviour
 
     private PickupItem heldItem;
 
-    // Agar Shaman bisa mengetahui item yang sedang dibawa
     public PickupItem HeldItem => heldItem;
+    public bool IsHolding => heldItem != null;
 
     private void Update()
     {
@@ -22,17 +22,24 @@ public class PlayerInventory : MonoBehaviour
         }
     }
 
-    public void PickUp(PickupItem item)
+    public bool PickUp(PickupItem item)
     {
+        if (item == null)
+            return false;
+
         if (heldItem != null)
-            return;
+        {
+            GameMessage.Show("Tangan penuh. Tekan Q untuk drop.");
+            return false;
+        }
 
         if (holdPoint == null)
         {
             Debug.LogWarning("HoldPoint belum di-assign di PlayerInventory.");
-            return;
+            return false;
         }
 
+        item.RememberRestPose();
         heldItem = item;
 
         item.transform.SetParent(holdPoint);
@@ -40,6 +47,7 @@ public class PlayerInventory : MonoBehaviour
         item.transform.localRotation = Quaternion.identity;
 
         item.SetHeld(true);
+        return true;
     }
 
     public void Drop()
@@ -47,24 +55,24 @@ public class PlayerInventory : MonoBehaviour
         if (heldItem == null)
             return;
 
-        heldItem.transform.SetParent(null);
+        PickupItem item = heldItem;
+        heldItem = null;
+
+        item.transform.SetParent(null);
 
         Vector3 dropPosition =
             transform.position + transform.forward * dropDistance;
 
-        heldItem.transform.position = dropPosition;
-
-        heldItem.SetHeld(false);
-
-        heldItem = null;
+        item.ApplyRestPose(dropPosition);
+        item.SetHeld(false);
     }
 
-    // Dipanggil ketika Offering diserahkan ke Shaman
     public void DeliverHeldItem()
     {
         if (heldItem == null)
             return;
 
+        heldItem.transform.SetParent(null);
         heldItem.gameObject.SetActive(false);
         heldItem = null;
     }

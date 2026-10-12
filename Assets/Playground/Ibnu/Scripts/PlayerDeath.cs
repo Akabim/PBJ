@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -8,20 +9,36 @@ public class PlayerDeath : MonoBehaviour
     public static readonly List<PlayerDeath> DeadPlayers = new List<PlayerDeath>();
 
     [SerializeField] private GameObject deathMessage;
-    [SerializeField] private Color deathColor = new Color(0.4f, 0.4f, 0.4f, 1f);
+    [SerializeField] private Color hitColor = new Color(1f, 0.3f, 0.3f, 1f);
+    [SerializeField] private int maxHits = 3;
+    [SerializeField] private float hitCooldownSeconds = 1.5f;
+    [SerializeField] private float reviveProtectionSeconds = 2f;
     [SerializeField] private bool enableTestKey = true;
 
     public bool IsDead { get; private set; }
-    public bool IsCarried => transform.parent != null;
+    public int HitsTaken { get; private set; }
+    public int MaxHits => maxHits;
+    public int HitsRemaining => Mathf.Max(0, maxHits - HitsTaken);
 
+    public bool IsProtected => Time.time < protectedUntil;
+    public bool CanBeHit => !IsDead && !IsProtected && Time.time >= hitCooldownUntil;
+
+    public event Action<PlayerDeath> Hit;
     public event Action<PlayerDeath> Died;
     public event Action<PlayerDeath> Revived;
 
     private readonly List<MonoBehaviour> disabledScripts = new List<MonoBehaviour>();
-    private DeadBody body;
+    private readonly List<Renderer> hiddenRenderers = new List<Renderer>();
+    private readonly List<Collider> disabledColliders = new List<Collider>();
+
+    private AshPile ash;
     private SpriteRenderer sprite;
     private Renderer rend;
     private Color originalColor;
+    private float protectedUntil;
+    private float hitCooldownUntil;
+    private bool wasKinematic;
+    private Coroutine flashRoutine;
 
     private void Awake()
     {
@@ -40,19 +57,70 @@ public class PlayerDeath : MonoBehaviour
             return;
 
         if (Keyboard.current.kKey.wasPressedThisFrame)
-            Die();
+            Die(true);
+
+        if (Keyboard.current.hKey.wasPressedThisFrame)
+            TakeHit();
     }
 
-    public void Die()
+    public bool TakeHit()
+    {
+        if (!CanBeHit)
+            return false;
+
+        HitsTaken++;
+        hitCooldownUntil = Time.time + hitCooldownSeconds;
+        Hit?.Invoke(this);
+
+        if (HitsTaken >= maxHits)
+        {
+            Die(true);
+            return true;
+        }
+
+        GameMessage.Show(name + " kena hit (" + HitsTaken + "/" + maxHits + ")");
+
+        if (flashRoutine != null)
+            StopCoroutine(flashRoutine);
+
+        flashRoutine = StartCoroutine(HitFlash());
+
+        return true;
+    }
+
+    private IEnumerator HitFlash()
+    {
+        SetTint(hitColor);
+        yield return new WaitForSeconds(0.15f);
+
+        SetTint(originalColor);
+        flashRoutine = null;
+    }
+
+    public void Die(bool force = false)
     {
         if (IsDead)
             return;
 
+        if (IsProtected && !force)
+            return;
+
         IsDead = true;
+        HitsTaken = maxHits;
+
+        if (flashRoutine != null)
+        {
+            StopCoroutine(flashRoutine);
+            flashRoutine = null;
+        }
+
+        SetTint(originalColor);
 
         PlayerInventory inventory = GetComponent<PlayerInventory>();
         if (inventory != null)
             inventory.Drop();
+
+        Vector3 groundPoint = GetGroundPoint();
 
         disabledScripts.Clear();
         foreach (MonoBehaviour script in GetComponents<MonoBehaviour>())
@@ -66,11 +134,36 @@ public class PlayerDeath : MonoBehaviour
 
         Rigidbody rb = GetComponent<Rigidbody>();
         if (rb != null)
-            rb.linearVelocity = Vector3.zero;
+        {
+            wasKinematic = rb.isKinematic;
 
-        body = gameObject.AddComponent<DeadBody>();
+            if (!rb.isKinematic)
+                rb.linearVelocity = Vector3.zero;
 
-        SetTint(deathColor);
+            rb.isKinematic = true;
+        }
+
+        hiddenRenderers.Clear();
+        foreach (Renderer r in GetComponentsInChildren<Renderer>())
+        {
+            if (!r.enabled)
+                continue;
+
+            r.enabled = false;
+            hiddenRenderers.Add(r);
+        }
+
+        disabledColliders.Clear();
+        foreach (Collider c in GetComponentsInChildren<Collider>())
+        {
+            if (!c.enabled)
+                continue;
+
+            c.enabled = false;
+            disabledColliders.Add(c);
+        }
+
+        ash = AshPile.Create(this, groundPoint);
 
         if (deathMessage != null)
             deathMessage.SetActive(true);
@@ -78,7 +171,7 @@ public class PlayerDeath : MonoBehaviour
         DeadPlayers.Add(this);
         Died?.Invoke(this);
 
-        Debug.Log("Player mati.");
+        GameMessage.Show(name + " jadi abu. Cari gentong untuk membawanya ke Altar.", 3f);
     }
 
     public void Revive(Vector3 position)
@@ -86,17 +179,31 @@ public class PlayerDeath : MonoBehaviour
         if (!IsDead)
             return;
 
-        if (body != null)
-            Destroy(body);
-
-        CharacterController controller = GetComponent<CharacterController>();
-        if (controller != null)
-            controller.enabled = false;
+        if (ash != null)
+        {
+            Destroy(ash.gameObject);
+            ash = null;
+        }
 
         transform.position = position;
 
-        if (controller != null)
-            controller.enabled = true;
+        foreach (Collider c in disabledColliders)
+        {
+            if (c != null)
+                c.enabled = true;
+        }
+        disabledColliders.Clear();
+
+        Rigidbody rb = GetComponent<Rigidbody>();
+        if (rb != null)
+            rb.isKinematic = wasKinematic;
+
+        foreach (Renderer r in hiddenRenderers)
+        {
+            if (r != null)
+                r.enabled = true;
+        }
+        hiddenRenderers.Clear();
 
         foreach (MonoBehaviour script in disabledScripts)
         {
@@ -111,10 +218,24 @@ public class PlayerDeath : MonoBehaviour
             deathMessage.SetActive(false);
 
         IsDead = false;
+        HitsTaken = 0;
+        protectedUntil = Time.time + reviveProtectionSeconds;
+
         DeadPlayers.Remove(this);
         Revived?.Invoke(this);
 
-        Debug.Log("Player hidup kembali.");
+        GameMessage.Show(name + " hidup lagi.");
+    }
+
+    private Vector3 GetGroundPoint()
+    {
+        Collider col = GetComponent<Collider>();
+
+        float y = col != null
+            ? col.bounds.min.y
+            : transform.position.y - 0.5f;
+
+        return new Vector3(transform.position.x, y, transform.position.z);
     }
 
     private void SetTint(Color color)

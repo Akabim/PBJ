@@ -1,36 +1,36 @@
 using UnityEngine;
-using UnityEngine.InputSystem;
 
 public class PlayerFacing : MonoBehaviour
 {
-    [SerializeField] private float turnSpeed = 10f;
+    [SerializeField] private float turnSpeedDegrees = 720f;
 
-    private void Update()
+    private Rigidbody rb;
+    private PlayerMovement movement;
+
+    private void Awake()
     {
-        Vector2 input = Vector2.zero;
+        rb = GetComponent<Rigidbody>();
+        movement = GetComponent<PlayerMovement>();
+    }
 
-        if (Keyboard.current.wKey.isPressed)
-            input.y += 1;
+    private void FixedUpdate()
+    {
+        if (rb == null || movement == null)
+            return;
 
-        if (Keyboard.current.sKey.isPressed)
-            input.y -= 1;
+        Vector3 direction = movement.InputDirection;
 
-        if (Keyboard.current.aKey.isPressed)
-            input.x -= 1;
+        if (direction.sqrMagnitude < 0.01f)
+            return;
 
-        if (Keyboard.current.dKey.isPressed)
-            input.x += 1;
+        Quaternion target = Quaternion.LookRotation(direction, Vector3.up);
 
-        if (input.sqrMagnitude > 0.01f)
-        {
-            Vector3 moveDirection = new Vector3(input.x, 0f, input.y);
-            Quaternion targetRotation = Quaternion.LookRotation(moveDirection, Vector3.up);
-
-            transform.rotation = Quaternion.Slerp(
-                transform.rotation,
-                targetRotation,
-                turnSpeed * Time.deltaTime
-            );
-        }
+        rb.MoveRotation(
+            Quaternion.RotateTowards(
+                rb.rotation,
+                target,
+                turnSpeedDegrees * Time.fixedDeltaTime
+            )
+        );
     }
 }
